@@ -1,67 +1,1042 @@
-DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Technical Documentation Hub</title>
-                <style>
-                        * {
-                                        margin: 0;
-                                                    padding: 0;
-                                                                box-sizing: border-box;
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encrypted Chat Room</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #1a1a1a;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Auth Modal Styles */
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .auth-form {
+            background: #2d2d2d;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            margin: 1rem;
+        }
+
+        .auth-form h2 {
+            margin: 0 0 1.5rem 0;
+            text-align: center;
+        }
+
+        .auth-form input,
+        .auth-form button {
+            width: 100%;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .auth-form input {
+            background: #444;
+            color: white;
+            border: 1px solid #555;
+        }
+
+        .auth-form input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .auth-form button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .auth-form button:hover {
+            background: #0056b3;
+        }
+
+        .auth-form button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .switch-mode {
+            color: #00aaff;
+            cursor: pointer;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .switch-mode:hover {
+            text-decoration: underline;
+        }
+
+        .error-message {
+            color: #ff4d4d;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: rgba(255, 77, 77, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid #ff4d4d;
+        }
+
+        /* Chat Styles */
+        .chat-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: #2d2d2d;
+            padding: 1rem;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+            transition: background 0.3s;
+        }
+
+        .status-dot.connected {
+            background: #44ff44;
+        }
+
+        .user-info {
+            background: #444;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .info-banner {
+            background: #1a4d1a;
+            color: #90ee90;
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #444;
+            flex-shrink: 0;
+        }
+
+        .room-info {
+            background: #1a1a4d;
+            color: #90b3ff;
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #444;
+            flex-shrink: 0;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 0.75rem;
+            border-radius: 12px;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message.sent {
+            background: #007bff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received {
+            background: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.system {
+            background: #444;
+            align-self: center;
+            text-align: center;
+            font-style: italic;
+            opacity: 0.8;
+            max-width: 90%;
+        }
+
+        .message-content {
+            margin-bottom: 0.25rem;
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+
+        .input-area {
+            background: #2d2d2d;
+            padding: 1rem;
+            border-top: 1px solid #444;
+            flex-shrink: 0;
+        }
+
+        .room-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .message-form {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #555;
+            border-radius: 8px;
+            background: #444;
+            color: white;
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        input[type="text"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #545b62;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff30;
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+
+            .status {
+                gap: 0.5rem;
+            }
+
+            .message {
+                max-width: 85%;
+            }
+
+            .room-controls,
+            .message-form {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-form">
+            <h2 id="authTitle">Sign In</h2>
+            <div id="errorMessage" class="error-message" style="display:none;"></div>
+            <form id="authForm">
+                <input type="email" id="emailInput" placeholder="Email" required>
+                <input type="password" id="passwordInput" placeholder="Password" required minlength="6">
+                <input type="text" id="usernameInput" placeholder="Username" style="display:none;" maxlength="20">
+                <button type="submit" id="authSubmit">
+                    <span id="authButtonText">Sign In</span>
+                    <span id="authLoading" class="loading" style="display:none;"></span>
+                </button>
+            </form>
+            <div class="switch-mode" id="switchMode">Don't have an account? Sign up</div>
+        </div>
+    </div>
+
+    <!-- Chat UI -->
+    <div id="chatUI" class="chat-app" style="display:none;">
+        <div class="header">
+            <h1>🔒 Encrypted Chat</h1>
+            <div class="status">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Connecting...</span>
+                </div>
+                <div class="user-info" id="userInfo">Loading...</div>
+                <button onclick="chatApp.signOut()" class="btn-secondary">Sign Out</button>
+            </div>
+        </div>
+        
+        <div class="info-banner">
+            🔐 End-to-end encrypted • Messages secured with AES-256-GCM
+        </div>
+        
+        <div class="room-info" id="roomInfo" style="display: none;">
+            Room: <span id="currentRoomName"></span> • <span id="userCount">0 users</span>
+        </div>
+        
+        <div class="chat-container">
+            <div class="messages" id="messages"></div>
+            <div class="input-area">
+                <div class="room-controls">
+                    <input type="text" id="roomInput" placeholder="Enter room name (3-20 characters)" maxlength="20" minlength="3">
+                    <button onclick="chat.joinRoom()" id="joinBtn">Join Room</button>
+                </div>
+                <div class="message-form">
+                    <input type="text" id="messageInput" placeholder="Type your message..." disabled maxlength="500">
+                    <button onclick="chat.sendMessage()" id="sendBtn" disabled>Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            SUPABASE_URL: 'https://rrjhgbuorrhvzwmmxmzs.supabase.co',
+            SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyamhnYnVvcnJodnp3bW14bXpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMzMzNjQsImV4cCI6MjA2OTkwOTM2NH0.Fs60CPW1HKh0UEP4AIlsoq1TLV8uqvHFJhKPRUOunjk',
+            RECONNECT_DELAY: 3000,
+            MAX_MESSAGE_LENGTH: 500,
+            MAX_ROOM_NAME_LENGTH: 20,
+            MIN_ROOM_NAME_LENGTH: 3
+        };
+
+        // Initialize Supabase client
+        const { createClient } = supabase;
+        const supabaseClient = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+        // Utility functions for binary/base64 operations
+        const CryptoUtils = {
+            arrayBufferToBase64: (buffer) => {
+                return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            },
+
+            base64ToArrayBuffer: (base64) => {
+                return Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
+            },
+
+            async exportPrivateKey(privateKey) {
+                const pkcs8 = await crypto.subtle.exportKey("pkcs8", privateKey);
+                return this.arrayBufferToBase64(pkcs8);
+            },
+
+            async importPrivateKey(base64) {
+                const pkcs8 = this.base64ToArrayBuffer(base64);
+                return crypto.subtle.importKey(
+                    "pkcs8",
+                    pkcs8,
+                    { name: "RSA-OAEP", hash: "SHA-256" },
+                    true,
+                    ["decrypt"]
+                );
+            },
+
+            async exportPublicKey(publicKey) {
+                const spki = await crypto.subtle.exportKey("spki", publicKey);
+                return this.arrayBufferToBase64(spki);
+            },
+
+            async importPublicKey(base64) {
+                const spki = this.base64ToArrayBuffer(base64);
+                return crypto.subtle.importKey(
+                    "spki",
+                    spki,
+                    { name: "RSA-OAEP", hash: "SHA-256" },
+                    true,
+                    ["encrypt"]
+                );
+            }
+        };
+
+        // Authentication and UI management
+        class SupabaseChatApp {
+            constructor() {
+                this.user = null;
+                this.isSignUp = false;
+                this.isLoading = false;
+                this.init();
+            }
+
+            async init() {
+                try {
+                    // Set up auth state listener
+                    supabaseClient.auth.onAuthStateChange((event, session) => {
+                        if (event === 'SIGNED_IN' && session) {
+                            this.user = session.user;
+                            this.onSignIn();
+                        } else if (event === 'SIGNED_OUT') {
+                            this.onSignOut();
                         }
+                    });
 
-                                body {
-                                                font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace;
-                                                            background: #0a0a0a;
-                                                                        color: #ffffff;
-                                                                                    min-height: 100vh;
-                                                                                                overflow-x: hidden;
-                                                                                                            line-height: 1.6;
-                                }
+                    // Check existing session
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (session?.user) {
+                        this.user = session.user;
+                        this.onSignIn();
+                    } else {
+                        this.showAuthModal();
+                    }
 
-                                        .container {
-                                                        max-width: 1400px;
-                                                                    margin: 0 auto;
-                                                                                padding: 0 20px;
-                                        }
+                    this.setupEventListeners();
+                } catch (error) {
+                    console.error('Init error:', error);
+                    this.showError('Failed to initialize app');
+                }
+            }
 
-                                                /* Grid lines overlay */
-                                                        .grid-overlay {
-                                                                        position: fixed;
-                                                                                    top: 0;
-                                                                                                left: 0;
-                                                                                                            width: 100%;
-                                                                                                                        height: 100%;
-                                                                                                                                    pointer-events: none;
-                                                                                                                                                z-index: 1;
-                                                                                                                                                            opacity: 0.1;
-                                                        }
+            setupEventListeners() {
+                document.getElementById('authForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleAuth();
+                });
 
-                                                                .grid-line {
-                                                                                position: absolute;
-                                                                                            background: #ffffff;
-                                                                }
+                document.getElementById('switchMode').addEventListener('click', () => {
+                    this.toggleAuthMode();
+                });
+            }
 
-                                                                        .grid-line.vertical {
-                                                                                        width: 1px;
-                                                                                                    height: 100%;
-                                                                                                                top: 0;
-                                                                        }
+            showAuthModal() {
+                document.getElementById('authModal').style.display = 'flex';
+            }
 
-                                                                                .grid-line.horizontal {
-                                                                                                height: 1px;
-                                                                                                            width: 100%;
-                                                                                                                        left: 0;
-                                                                                }
+            hideAuthModal() {
+                document.getElementById('authModal').style.display = 'none';
+            }
 
-                                                                                        header {
-                                                                                                        padding: 30px 0;
-                                                                                                                    position: relative;
-                                                                                                                                z-index: 100;
-                                                                                                                                            border-bottom: 2px solid #333;
-                                                                                        }
+            toggleAuthMode() {
+                this.isSignUp = !this.isSignUp;
+                const title = this.isSignUp ? 'Sign Up' : 'Sign In';
+                const switchText = this.isSignUp 
+                    ? 'Already have an account? Sign in' 
+                    : "Don't have an account? Sign up";
 
+                document.getElementById('authTitle').textContent = title;
+                document.getElementById('authButtonText').textContent = title;
+                document.getElementById('switchMode').textContent = switchText;
+                document.getElementById('usernameInput').style.display = this.isSignUp ? 'block' : 'none';
+                
+                this.clearError();
+            }
+
+            async handleAuth() {
+                if (this.isLoading) return;
+
+                const email = document.getElementById('emailInput').value.trim();
+                const password = document.getElementById('passwordInput').value;
+                const username = document.getElementById('usernameInput').value.trim();
+
+                // Validation
+                if (!email || !password) {
+                    this.showError('Please fill in all fields');
+                    return;
+                }
+
+                if (this.isSignUp && !username) {
+                    this.showError('Please provide a username');
+                    return;
+                }
+
+                this.setLoading(true);
+                this.clearError();
+
+                try {
+                    let result;
+                    if (this.isSignUp) {
+                        result = await supabaseClient.auth.signUp({
+                            email,
+                            password,
+                            options: {
+                                data: { username }
+                            }
+                        });
+                    } else {
+                        result = await supabaseClient.auth.signInWithPassword({
+                            email,
+                            password
+                        });
+                    }
+
+                    if (result.error) {
+                        this.showError(result.error.message);
+                        return;
+                    }
+
+                    if (this.isSignUp && !result.data.user?.confirmed_at) {
+                        this.showError('Please check your email to confirm your account before signing in.');
+                        return;
+                    }
+
+                    this.user = result.data.user;
+                } catch (error) {
+                    console.error('Auth error:', error);
+                    this.showError('Authentication failed. Please try again.');
+                } finally {
+                    this.setLoading(false);
+                }
+            }
+
+            setLoading(loading) {
+                this.isLoading = loading;
+                const submitBtn = document.getElementById('authSubmit');
+                const buttonText = document.getElementById('authButtonText');
+                const loadingSpinner = document.getElementById('authLoading');
+
+                submitBtn.disabled = loading;
+                buttonText.style.display = loading ? 'none' : 'inline';
+                loadingSpinner.style.display = loading ? 'inline-block' : 'none';
+            }
+
+            showError(message) {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+
+            clearError() {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.style.display = 'none';
+            }
+
+            onSignIn() {
+                this.hideAuthModal();
+                document.getElementById('chatUI').style.display = 'flex';
+                document.getElementById('userInfo').textContent = this.user.email;
+                
+                // Initialize chat
+                if (window.chat) {
+                    window.chat.cleanup();
+                }
+                window.chat = new EncryptedChat(this.user);
+            }
+
+            async signOut() {
+                try {
+                    if (window.chat) {
+                        window.chat.cleanup();
+                    }
+                    await supabaseClient.auth.signOut();
+                } catch (error) {
+                    console.error('Sign out error:', error);
+                }
+            }
+
+            onSignOut() {
+                this.user = null;
+                document.getElementById('chatUI').style.display = 'none';
+                document.getElementById('messages').innerHTML = '';
+                document.getElementById('roomInfo').style.display = 'none';
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('roomInput').value = '';
+                document.getElementById('messageInput').value = '';
+                this.showAuthModal();
+            }
+        }
+
+      // Fixed EncryptedChat class that actually uses your Supabase database
+class EncryptedChat {
+    constructor(user) {
+        this.user = user;
+        this.currentRoom = null;
+        this.currentRoomId = null;
+        this.encryptionKey = null;
+        this.connected = false;
+        this.messageChannel = null;
+        this.roomChannel = null;
+        
+        this.init();
+    }
+
+    async init() {
+        try {
+            this.updateStatus('Setting up encryption...', false);
+            await this.generateEncryptionKey();
+            await this.ensureUserProfile();
+            this.setupEventListeners();
+            this.updateStatus('Ready', true);
+            this.connected = true;
+            this.addSystemMessage('Ready to chat! Join a room to start messaging.');
+        } catch (error) {
+            console.error('Chat init error:', error);
+            this.updateStatus('Setup failed', false);
+            this.addSystemMessage('Failed to initialize chat. Please refresh and try again.');
+        }
+    }
+
+    async ensureUserProfile() {
+        // Check if user profile exists in our users table
+        const { data: existingUser, error } = await supabaseClient
+            .from('users')
+            .select('*')
+            .eq('id', this.user.id)
+            .single();
+
+        if (error && error.code === 'PGRST116') {
+            // User doesn't exist in our table, create profile
+            const username = this.user.user_metadata?.username || 
+                           this.user.email.split('@')[0];
+            
+            const { error: insertError } = await supabaseClient
+                .from('users')
+                .insert({
+                    id: this.user.id,
+                    username: username
+                });
+
+            if (insertError) {
+                console.error('Error creating user profile:', insertError);
+                throw new Error('Failed to create user profile');
+            }
+        } else if (error) {
+            console.error('Error checking user profile:', error);
+            throw new Error('Failed to verify user profile');
+        }
+    }
+
+    async generateEncryptionKey() {
+        this.encryptionKey = await crypto.subtle.generateKey(
+            { name: 'AES-GCM', length: 256 },
+            true,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    setupEventListeners() {
+        const messageInput = document.getElementById('messageInput');
+        const roomInput = document.getElementById('roomInput');
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        roomInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.joinRoom();
+            }
+        });
+    }
+
+    updateStatus(text, connected) {
+        document.getElementById('statusText').textContent = text;
+        document.getElementById('statusDot').classList.toggle('connected', connected);
+    }
+
+    async joinRoom() {
+        const roomName = document.getElementById('roomInput').value.trim();
+        
+        if (!roomName) {
+            alert('Please enter a room name');
+            return;
+        }
+
+        if (roomName.length < CONFIG.MIN_ROOM_NAME_LENGTH) {
+            alert(`Room name must be at least ${CONFIG.MIN_ROOM_NAME_LENGTH} characters`);
+            return;
+        }
+
+        if (roomName.length > CONFIG.MAX_ROOM_NAME_LENGTH) {
+            alert(`Room name must be no more than ${CONFIG.MAX_ROOM_NAME_LENGTH} characters`);
+            return;
+        }
+
+        try {
+            this.updateStatus('Joining room...', false);
+
+            // Use your database function to join/create room
+            const { data: roomId, error } = await supabaseClient.rpc('join_room', {
+                room_name: roomName
+            });
+
+            if (error) {
+                console.error('Error joining room:', error);
+                alert('Failed to join room: ' + error.message);
+                this.updateStatus('Ready', true);
+                return;
+            }
+
+            // Cleanup previous room subscription
+            if (this.messageChannel) {
+                supabaseClient.removeChannel(this.messageChannel);
+            }
+
+            this.currentRoom = roomName;
+            this.currentRoomId = roomId;
+            
+            // Enable message input
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            
+            // Update UI
+            document.getElementById('currentRoomName').textContent = roomName;
+            document.getElementById('roomInfo').style.display = 'block';
+
+            // Load recent messages
+            await this.loadRecentMessages();
+
+            // Subscribe to new messages
+            this.subscribeToMessages();
+
+            // Update room member count
+            await this.updateRoomMemberCount();
+
+            this.updateStatus('Connected', true);
+            this.addSystemMessage(`Joined room: ${roomName}`);
+            document.getElementById('messageInput').focus();
+
+        } catch (error) {
+            console.error('Join room error:', error);
+            alert('Failed to join room. Please try again.');
+            this.updateStatus('Ready', true);
+        }
+    }
+
+    async loadRecentMessages() {
+        try {
+            const { data: messages, error } = await supabaseClient
+                .from('messages')
+                .select(`
+                    id,
+                    encrypted_content,
+                    iv,
+                    message_type,
+                    created_at,
+                    users!messages_sender_id_fkey(username)
+                `)
+                .eq('room_id', this.currentRoomId)
+                .order('created_at', { ascending: true })
+                .limit(50);
+
+            if (error) {
+                console.error('Error loading messages:', error);
+                return;
+            }
+
+            // Clear existing messages
+            document.getElementById('messages').innerHTML = '';
+
+            // Display messages
+            for (const message of messages) {
+                try {
+                    const decryptedText = await this.decryptMessage({
+                        iv: message.iv,
+                        data: message.encrypted_content
+                    });
+                    
+                    const senderName = message.users?.username || 'Unknown';
+                    const type = message.sender_id === this.user.id ? 'sent' : 'received';
+                    
+                    this.addMessage(senderName, decryptedText, type, message.created_at);
+                } catch (decryptError) {
+                    console.error('Failed to decrypt message:', decryptError);
+                    // Show encrypted message indicator instead of failing
+                    const senderName = message.users?.username || 'Unknown';
+                    const type = message.sender_id === this.user.id ? 'sent' : 'received';
+                    this.addMessage(senderName, '[Encrypted message]', type, message.created_at);
+                }
+            }
+        } catch (error) {
+            console.error('Load messages error:', error);
+        }
+    }
+
+    subscribeToMessages() {
+        this.messageChannel = supabaseClient
+            .channel(`room-${this.currentRoomId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `room_id=eq.${this.currentRoomId}`
+                },
+                async (payload) => {
+                    const message = payload.new;
+                    
+                    // Don't show our own messages (already displayed when sent)
+                    if (message.sender_id === this.user.id) return;
+
+                    try {
+                        // Get sender username
+                        const { data: sender } = await supabaseClient
+                            .from('users')
+                            .select('username')
+                            .eq('id', message.sender_id)
+                            .single();
+
+                        const decryptedText = await this.decryptMessage({
+                            iv: message.iv,
+                            data: message.encrypted_content
+                        });
+                        
+                        const senderName = sender?.username || 'Unknown';
+                        this.addMessage(senderName, decryptedText, 'received', message.created_at);
+                    } catch (error) {
+                        console.error('Failed to process incoming message:', error);
+                    }
+                }
+            )
+            .subscribe();
+    }
+
+    async updateRoomMemberCount() {
+        try {
+            const { data: count, error } = await supabaseClient.rpc('get_room_member_count', {
+                room_uuid: this.currentRoomId
+            });
+
+            if (!error && count !== null) {
+                document.getElementById('userCount').textContent = `${count} user${count !== 1 ? 's' : ''}`;
+            }
+        } catch (error) {
+            console.error('Error getting member count:', error);
+        }
+    }
+
+    async sendMessage() {
+        const messageText = document.getElementById('messageInput').value.trim();
+        
+        if (!messageText) return;
+        if (!this.currentRoom) {
+            alert('Please join a room first');
+            return;
+        }
+        if (messageText.length > CONFIG.MAX_MESSAGE_LENGTH) {
+            alert(`Message too long. Maximum ${CONFIG.MAX_MESSAGE_LENGTH} characters.`);
+            return;
+        }
+
+        try {
+            const encryptedData = await this.encryptMessage(messageText);
+            
+            // Insert message into database
+            const { error } = await supabaseClient
+                .from('messages')
+                .insert({
+                    room_id: this.currentRoomId,
+                    sender_id: this.user.id,
+                    encrypted_content: encryptedData.data,
+                    iv: encryptedData.iv,
+                    message_type: 'message'
+                });
+
+            if (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message: ' + error.message);
+                return;
+            }
+
+            // Add message to UI immediately
+            this.addMessage('You', messageText, 'sent');
+            document.getElementById('messageInput').value = '';
+
+        } catch (error) {
+            console.error('Send message error:', error);
+            alert('Failed to send message. Please try again.');
+        }
+    }
+
+    async encryptMessage(text) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encodedText = new TextEncoder().encode(text);
+        
+        const encrypted = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            this.encryptionKey,
+            encodedText
+        );
+
+        return {
+            iv: btoa(String.fromCharCode(...iv)),
+            data: btoa(String.fromCharCode(...new Uint8Array(encrypted)))
+        };
+    }
+
+    async decryptMessage(encryptedData) {
+        try {
+            const iv = new Uint8Array(atob(encryptedData.iv).split('').map(c => c.charCodeAt(0)));
+            const data = new Uint8Array(atob(encryptedData.data).split('').map(c => c.charCodeAt(0)));
+            
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv },
+                this.encryptionKey,
+                data
+            );
+
+            return new TextDecoder().decode(decrypted);
+        } catch (error) {
+            console.error('Decrypt error:', error);
+            return '[Encrypted message - decryption failed]';
+        }
+    }
+
+    addMessage(sender, text, type, timestamp = null) {
+        const messagesContainer = document.getElementById('messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = text;
+        
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'message-meta';
+        
+        const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+        metaDiv.textContent = `${sender} • ${time}`;
+        
+        messageDiv.appendChild(contentDiv);
+        messageDiv.appendChild(metaDiv);
+        messagesContainer.appendChild(messageDiv);
+        
+        // Auto-scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    addSystemMessage(text) {
+        this.addMessage('System', text, 'system');
+    }
+
+    cleanup() {
+        // Clean up subscriptions
+        if (this.messageChannel) {
+            supabaseClient.removeChannel(this.messageChannel);
+            this.messageChannel = null;
+        }
+        
+        if (this.roomChannel) {
+            supabaseClient.removeChannel(this.roomChannel);
+            this.roomChannel = null;
+        }
+    }
+}
+
+        // Initialize the application
+        let chatApp;
+        let chat;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            chatApp = new SupabaseChatApp();
+        });
+    </script>
+</body>
+</html>
                                                                                                 nav {
                                                                                                                 display: flex;
                                                                                                                             justify-content: space-between;
@@ -669,62 +1644,4 @@ DOCTYPE html>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         }
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 }
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                            }
-                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                }
-                                                                                                                                                                                                        }
-                                                                                                                                                                                                }
-                                                                                                                                                                                        }
-                                                                                                                                                                                }
-                                                                                                                                                                        }
-                                                                                                                                                                }
-                                                                                                                                                        }
-                                                                                                                                                }
-                                                                                                                                        }
-                                                                                                                                }
-                                                                                                                        }
-                                                                                                                }
-                                                                                                        }
-                                                                                                }
-                                                                                        }
-                                                                                }
-                                                                        }
-                                                                }
-                                                        }
-                                        }
-                                }
-                        }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                
